@@ -36,7 +36,7 @@ type op =
 let binstr_of_bool = function
   | Bool false -> "0"
   | Bool true -> "1"
-  | DelayHigh -> assert false
+  | DelayHigh -> String.make 12 '1'
 
 let bool_of_binstr = function 
   | '0' -> Some (Bool false)
@@ -61,15 +61,14 @@ let rec parts_by p xs =
 
 let send_sequence fd seq = 
   let seq = List.of_enum seq in
-  let parts = parts_by ((=) DelayHigh) seq in
-    List.iter
-      (fun part ->
-	 write_all fd "b";
-	 write_all fd (String.concat "" (List.map binstr_of_bool part));
-	 write_all fd ";";
-	 ignore (Core.Core_unix.nanosleep 0.30000);
-      )
-      parts
+    write_all fd "b";
+    write_all fd (String.concat "" (List.map binstr_of_bool seq));
+    write_all fd ";";
+    let buf = String.make 1 ' ' in
+      ignore (Unix.read fd buf 0 1);
+      if String.get buf 0 <> '.' then
+	Printf.eprintf "Failed to send sequence"
+	(* ignore (Core.Core_unix.nanosleep 0.0000520); *)
 
 let main () =
   let args = List.tl (Array.to_list Sys.argv) in
