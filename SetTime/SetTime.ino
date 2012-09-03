@@ -2,7 +2,17 @@ int out = 2;
 int in = 3;
 int debug = 4;
 
-static unsigned long time = 0;
+const unsigned sequenceSize = 200;
+unsigned char sequence[sequenceSize + 1];
+int sequenceAt = 0; // for reading sequences
+int sequenceAtBit = 0;
+int prevSequenceSize = 0;
+
+int inBinarySequence = 0;
+
+volatile int writeBitsLeft = 0;
+volatile int writeCurBit = 0;
+volatile int writeCurByte = 0;
 
 unsigned char initsequence[] = {
 0,0,1,0,0,0,0,0,0,1,1,0,1,0,1,0,1,1,0,0,1,1,1,0,0,1,1,0,0,0,1,1,1,1,0,1,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,0,0,0,0,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,2,
@@ -92,14 +102,50 @@ unsigned char initsequence[] = {
 
 #endif
 
+static const int prescaler = 1;
+static const double systemHz = 16000000;
+static const double bitLength = 52.0 / 1000000.0;
+static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
+static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
+//static const unsigned int = 0;
 
-void pulse(int length, int value)
+void setupTimer()
 {
+  // initialize timer1 
+  noInterrupts();           // disable all interrupts
+  TCCR1A = 0;
+  TCCR1B = 0;
+
+  TCNT1 = 34286;            // preload timer 65536-16MHz/256/2Hz
+//  TCCR1B |= (1 << CS12);    // 256 prescaler 
+  TCCR1B |= (1 << CS10);    // no prescaler 
+  TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
+  interrupts();             // enable all interrupts
+}
+
+ISR(TIMER1_OVF_vect)
+{
+  TCNT1 = timerPreload;            // preload timer
+#if 1
+  if (writeBitsLeft > 0) {
+    --writeBitsLeft;
+    int value = ((sequence[writeCurByte] >> writeCurBit) & 1) ? HIGH : LOW;
+    digitalWrite(out, value);
+    digitalWrite(debug, value);
+    if (++writeCurBit == 8) {
+      writeCurBit = 0;
+      ++writeCurByte;
+    }
+  } else {
+    digitalWrite(out, HIGH);
+    digitalWrite(debug, HIGH);
+  }
+#else
+  static int value = 0;
+  value ^= 1;
   digitalWrite(out, value);
   digitalWrite(debug, value);
-  time += 52 * length;
-  delayMicroseconds(time - micros());
-//  delayMicroseconds(length * 52);
+#endif
 }
 
 // the loop routine runs over and over again forever:
@@ -110,7 +156,9 @@ void setup() {
   digitalWrite(out, HIGH);
   digitalWrite(debug, HIGH);
   Serial.begin(9600);
-  Serial.println("Start");
+  Serial.print("Start. timerPreload=");
+  Serial.println(timerPreload);
+  setupTimer();
 }
 
 void sendSequence(const unsigned char* seq)
@@ -169,20 +217,26 @@ void sendBinarySequence(const unsigned char* seq, int numBits)
     }
   }
   Serial.println();
+}
 
+// sends stuff from sequence, sequenceAtBit/sequenceAtByte
+void sendBinarySequenceHw()
+{
+  noInterrupts();
+  writeBitsLeft = sequenceAt * 8 + sequenceAtBit;
+  writeCurBit = 0;
+  writeCurByte = 0;
+  interrupts();
+  
+  while (writeBitsLeft > 0) {
+    // wait for writing to go through
+  }
+  Serial.println(".");
 }
 
 void doit() {
   sendSequence(initsequence);
 }
-
-const unsigned sequenceSize = 200;
-unsigned char sequence[sequenceSize + 1];
-int sequenceAt = 0;
-int prevSequenceSize = 0;
-
-int sequenceAtBit = 0;
-int inBinarySequence = 0;
 
 void baseLoop() {
   if (Serial.available()) {
@@ -252,12 +306,15 @@ void binarySequenceLoop() {
         advanceBit();
       } break;
       case ';': {
+#if 0
         Serial.print("Sending binary ");
         Serial.print(sequenceAt * 8);
         Serial.print("+");
         Serial.print(sequenceAtBit);
         Serial.println(" bits");
-        sendBinarySequence(sequence, sequenceAt * 8 + sequenceAtBit);
+#endif        
+        //sendBinarySequence(sequence, sequenceAt * 8 + sequenceAtBit);
+        sendBinarySequenceHw();
         inBinarySequence = false;
       } break;
       default:
