@@ -4,7 +4,7 @@ int debug = 4;
 
 static unsigned long time = 0;
 
-char initsequence[] = {
+unsigned char initsequence[] = {
 0,0,1,0,0,0,0,0,0,1,1,0,1,0,1,0,1,1,0,0,1,1,1,0,0,1,1,0,0,0,1,1,1,1,0,1,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,0,0,0,0,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,2,
 0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,1,0,0,0,0,0,0,1,1,1,0,1,0,1,0,0,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,1,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,0,1,1,0,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,0,0,1,0,0,0,0,0,0,1,1,1,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,2,
 0,0,1,0,0,0,0,0,0,1,1,1,0,1,0,0,0,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,1,1,1,0,0,1,1,0,0,0,0,0,0,2,
@@ -110,9 +110,10 @@ void setup() {
   digitalWrite(out, HIGH);
   digitalWrite(debug, HIGH);
   Serial.begin(9600);
+  Serial.println("Start");
 }
 
-void sendSequence(const char* seq)
+void sendSequence(const unsigned char* seq)
 {
   Serial.println("Sending sequence");
   static unsigned long time = micros();
@@ -135,16 +136,55 @@ void sendSequence(const char* seq)
   Serial.println("Done sending sequence");
 }
 
+void sendBinarySequence(const unsigned char* seq, int numBits)
+{
+  static unsigned long time = micros();
+  int curBit = 0;
+  int curByte = 0;
+  for (int c = 0; c < numBits; ++c) {
+    int value = ((seq[curByte] >> curBit) & 1) ? HIGH : LOW;
+    digitalWrite(out, value);
+    digitalWrite(debug, value);
+    time += 52;
+    if (++curBit == 8) {
+      curBit = 0;
+      ++curByte;
+    }
+    unsigned int delta = time - micros();
+    delayMicroseconds(delta);
+  }
+  digitalWrite(out, HIGH);
+  digitalWrite(debug, HIGH);
+  
+
+  curBit = 0;
+  curByte = 0;
+  Serial.print("Sent ");
+  for (int c = 0; c < numBits; ++c) {
+    int value = ((seq[curByte] >> curBit) & 1);
+    Serial.print(value ? '1' : '0');
+    if (++curBit == 8) {
+      curBit = 0;
+      ++curByte;
+    }
+  }
+  Serial.println();
+
+}
+
 void doit() {
   sendSequence(initsequence);
 }
 
-const unsigned sequenceSize = 100;
-char sequence[sequenceSize + 1];
+const unsigned sequenceSize = 200;
+unsigned char sequence[sequenceSize + 1];
 int sequenceAt = 0;
 int prevSequenceSize = 0;
 
-void loop() {
+int sequenceAtBit = 0;
+int inBinarySequence = 0;
+
+void baseLoop() {
   if (Serial.available()) {
     char ch = Serial.read();
     switch (ch) {
@@ -154,12 +194,21 @@ void loop() {
       case '0': {
         if (sequenceAt < sequenceSize) {
           sequence[sequenceAt++] = 0;
+        } else {
+          Serial.println("Sequence is too long");
         }
       } break;
       case '1': {
         if (sequenceAt < sequenceSize) {
           sequence[sequenceAt++] = 1;
+        } else {
+          Serial.println("Sequence is too long");
         }
+      } break;
+      case 'b': {
+        sequenceAt = 0;
+        sequenceAtBit = 0;
+        inBinarySequence = true;
       } break;
       case ';': {
         if (!prevSequenceSize || sequenceAt > 0) {
@@ -177,5 +226,55 @@ void loop() {
         sequenceAt = 0;
       } break;
     }
+  }
+}
+
+void advanceBit() {
+  if (++sequenceAtBit == 8) {
+    ++sequenceAt;
+    sequenceAtBit = 0;
+  }
+  if (sequenceAt == sequenceSize) {
+    inBinarySequence = false;
+  }
+}
+
+void binarySequenceLoop() {
+  if (Serial.available()) {
+    char ch = Serial.read();
+    switch (ch) {
+      case '1': {
+        sequence[sequenceAt] |= (1 << sequenceAtBit);
+        advanceBit();
+      } break;
+      case '0': {
+        sequence[sequenceAt] &= ~(1 << sequenceAtBit);
+        advanceBit();
+      } break;
+      case ';': {
+        Serial.print("Sending binary ");
+        Serial.print(sequenceAt * 8);
+        Serial.print("+");
+        Serial.print(sequenceAtBit);
+        Serial.println(" bits");
+        sendBinarySequence(sequence, sequenceAt * 8 + sequenceAtBit);
+        inBinarySequence = false;
+      } break;
+      default:
+        Serial.println("Aborting binary sequence");
+        inBinarySequence = false;
+    }
+  }
+}
+
+void loop() {
+  if (inBinarySequence) {
+    binarySequenceLoop();
+    if (!inBinarySequence) {
+      sequenceAt = 0;
+      prevSequenceSize = 0;
+    }
+  } else {
+    baseLoop();
   }
 }
