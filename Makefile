@@ -4,3 +4,5 @@ PACKS:=-package unix,batteries,core -thread
 	ocamlfind ocamlc -dtypes -linkpkg $(PACKS) -o $@ $<
 
 send-sequence: send-sequence.ml
+
+difference: difference.ml
