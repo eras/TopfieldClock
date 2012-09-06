@@ -70,13 +70,19 @@ let send_sequence fd seq =
 	Printf.eprintf "Failed to send sequence"
 	(* ignore (Core.Core_unix.nanosleep 0.0000520); *)
 
+
+let do_send serial_port sequence =
+  let fd = open_serial serial_port 9600 in
+    send_sequence fd (Enum.filter_map bool_of_binstr (String.enum sequence));
+    Unix.close fd
+
 let main () =
   let args = List.tl (Array.to_list Sys.argv) in
     match args with
       | serial_port::sequence::[] ->
-	  let fd = open_serial serial_port 9600 in
-	    send_sequence fd (Enum.filter_map bool_of_binstr (String.enum sequence));
-	    Unix.close fd
+	  do_send serial_port sequence
+      | serial_port::[] ->
+	  do_send serial_port (Std.input_all Pervasives.stdin)
       | _ -> 
 	  Printf.printf "usage: send-sequence /dev/ttyUSB1 001010100012\n";
 	  Printf.printf "Unsupported characters are ignored in the sequence\n"
