@@ -195,41 +195,6 @@ void sendSequence(const unsigned char* seq)
   Serial.println("Done sending sequence");
 }
 
-void sendBinarySequence(const unsigned char* seq, int numBits)
-{
-  static unsigned long time = micros();
-  int curBit = 0;
-  int curByte = 0;
-  for (int c = 0; c < numBits; ++c) {
-    int value = ((seq[curByte] >> curBit) & 1) ? HIGH : LOW;
-    digitalWrite(out, value);
-    digitalWrite(debug, value);
-    time += 52;
-    if (++curBit == 8) {
-      curBit = 0;
-      ++curByte;
-    }
-    unsigned int delta = time - micros();
-    delayMicroseconds(delta);
-  }
-  digitalWrite(out, HIGH);
-  digitalWrite(debug, HIGH);
-  
-
-  curBit = 0;
-  curByte = 0;
-  Serial.print("Sent ");
-  for (int c = 0; c < numBits; ++c) {
-    int value = ((seq[curByte] >> curBit) & 1);
-    Serial.print(value ? '1' : '0');
-    if (++curBit == 8) {
-      curBit = 0;
-      ++curByte;
-    }
-  }
-  Serial.println();
-}
-
 // sends stuff from sequence, sequenceAtBit/sequenceAtByte
 void sendBinarySequenceHw()
 {
