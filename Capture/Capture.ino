@@ -5,7 +5,7 @@ int debug = 4;
 static const int prescaler = 1;
 static const double systemHz = 16000000;
 static const double bitLength = 52.0 / 1000000.0;
-static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
+static const unsigned int finetuning = 47; // fine-tuned with an oscilloscope
 static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
 static const unsigned int timerPreload2 = 65536 - systemHz / prescaler / (1 / (bitLength / 2)) + finetuning;
 
