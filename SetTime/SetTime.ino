@@ -294,7 +294,7 @@ void binarySequenceLoop() {
         inBinarySequence = false;
       } break;
       default:
-        Serial.println("Aborting binary sequence");
+        Serial.println("!");
         inBinarySequence = false;
     }
   }
