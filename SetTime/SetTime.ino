@@ -296,8 +296,8 @@ static void checkTime()
       interrupts();
       if (now != prevTime) {
         struct tm tm;
-        gmtime_r(now, &tm);
-        sendHHMM(tm.tm_hour, tm.tm_min);
+        gmtime_r(now + TZ_OFFSET, &tm);
+        sendHHMM(tm.tm_hour, tm.tm_min, B8(0110000));
         Serial.print(tm.tm_hour);
         Serial.print(":");
         Serial.print(tm.tm_min);
@@ -332,16 +332,18 @@ void loop() {
       uint32_t b = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 1];
       uint32_t c = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 2];
       uint32_t d = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 3];
-      uint32_t t = ((a << 24) | (b << 16) | (c << 8) | d) - 2208988800ul + TZ_OFFSET;
-      curTime = t;
+      uint32_t t1 = ((a << 24) | (b << 16) | (c << 8) | d) - 2208988800ul;
       a = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 4];
       b = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 5];
       c = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 6];
       d = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 7];
-      t = ((a << 24) | (b << 16) | (c << 8) | d) - 2208988800ul + TZ_OFFSET;
-      curTimeFractions = t;
+      uint32_t t2 = ((a << 24) | (b << 16) | (c << 8) | d);
+      noInterrupts();
+      curTime = t1;
+      curTimeFractions = t2;
+      interrupts();
       struct tm tm;
-      gmtime_r(t, &tm);
+      gmtime_r(t1, &tm);
       Serial.println(tm.tm_mday);
       Serial.println(tm.tm_mon + 1);
       Serial.println(tm.tm_year);
