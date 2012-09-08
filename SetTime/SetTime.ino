@@ -313,7 +313,7 @@ static void checkTime()
 void loop() {
   static bool flag = true;
   if (flag) {
-    sendHHMM(99, 99);
+    setDigits(10, 10, 10, 10, B8(0000000));
     flag = false;
   }
   checkTime();
