@@ -248,9 +248,9 @@ void sendBits(uint8_t* ptr, int bits)
   Serial.println();
 }
 
-void insertByte(uint8_t* dst, int dstBit, uint8_t data)
+void insertBits(int n, uint8_t* dst, int dstBit, uint8_t data)
 {
-  for (int bitN = 7; bitN >= 0; --bitN) {
+  for (int bitN = n - 1; bitN >= 0; --bitN) {
     *dst = *dst & ~(1 << dstBit) | ((!!(data & (1 << bitN))) << dstBit);
     if (++dstBit == 8) {
       ++dst;
