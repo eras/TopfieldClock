@@ -350,7 +350,6 @@ void loop() {
       Serial.println(tm.tm_hour);
       Serial.println(tm.tm_min);
       Serial.println(tm.tm_sec);
-      sendHHMM(tm.tm_hour, tm.tm_min);
       knowTime = true;
     }
   }
