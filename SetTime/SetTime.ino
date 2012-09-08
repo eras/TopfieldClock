@@ -166,8 +166,7 @@ static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
 static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
 
 // how much to advance curTimeFractions in the interrupt handler
-//volatile uint32_t fractionsPerOverflow = 4294967296 / bitLength / 10000;
-volatile uint32_t fractionsPerOverflow = 100000;
+volatile uint32_t fractionsPerOverflow = 4294967296.0 * bitLength;
 
 void setupTimer()
 {
