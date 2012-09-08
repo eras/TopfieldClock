@@ -264,17 +264,24 @@ inline uint8_t digit(int n, bool dot)
   return bitsOfDigit[n] << 1 | (dot ? 0 : 1);
 }
 
-void sendHHMM(int hh, int mm)
+void setDigits(int h1, int h2, int m1, int m2, int dots)
+{
+  insertBits(8, setHHMM + 3, 1, digit(h1, dots & 8));
+  insertBits(8, setHHMM + 4, 6, digit(h2, dots & 4));
+  insertBits(8, setHHMM + 6, 2, digit(m1, dots & 2));
+  insertBits(8, setHHMM + 8, 0, digit(m2, dots & 1));
+  insertBits(1, setHHMM + 9, 2, ~(dots >> 4));
+  insertBits(1, setHHMM + 9, 3, ~(dots >> 5));
+  sendBits(setHHMM, sizeof(setHHMM) * 8);
+}
+
+void sendHHMM(int hh, int mm, int dots)
 {
   int h1 = hh / 10;
   int h2 = hh % 10;
   int m1 = mm / 10;
   int m2 = mm % 10;
-  insertByte(setHHMM + 3, 1, digit(h1, 0));
-  insertByte(setHHMM + 4, 6, digit(h2, 0));
-  insertByte(setHHMM + 6, 2, digit(m1, 0));
-  insertByte(setHHMM + 8, 0, digit(m2, 0));
-  sendBits(setHHMM, sizeof(setHHMM) * 8);
+  setDigits(h1, h2, m1, m2, dots);
 }
 
 static void checkTime()
