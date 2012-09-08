@@ -1,4 +1,4 @@
-int in = 2;
+int in = 3;
 int debug = 4;
 
 static const int sampleLength = 52;
