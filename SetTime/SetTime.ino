@@ -156,11 +156,19 @@ volatile int writeBitsLeft = 0;
 volatile int writeCurBit = 0;
 volatile int writeCurByte = 0;
 
+volatile uint32_t curTime = 0;
+volatile uint32_t curTimeFractions = 0;
+bool knowTime = false;
+
 static const int prescaler = 1;
 static const double systemHz = 16000000;
 static const double bitLength = 52.0 / 1000000.0;
 static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
 static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
+
+// how much to advance curTimeFractions in the interrupt handler
+//volatile uint32_t fractionsPerOverflow = 4294967296 / bitLength / 10000;
+volatile uint32_t fractionsPerOverflow = 100000;
 
 void setupTimer()
 {
@@ -179,7 +187,10 @@ void setupTimer()
 ISR(TIMER1_OVF_vect)
 {
   TCNT1 = timerPreload;            // preload timer
-#if 1
+  curTimeFractions += fractionsPerOverflow;
+  if (curTimeFractions < fractionsPerOverflow) {
+    ++curTime;
+  }
   if (writeBitsLeft > 0) {
     --writeBitsLeft;
     int value = ((sequence[writeCurByte] >> writeCurBit) & 1) ? HIGH : LOW;
@@ -193,12 +204,6 @@ ISR(TIMER1_OVF_vect)
     digitalWrite(out, HIGH);
     digitalWrite(debug, HIGH);
   }
-#else
-  static int value = 0;
-  value ^= 1;
-  digitalWrite(out, value);
-  digitalWrite(debug, value);
-#endif
 }
 
 /* End of timer interrupt code */
@@ -273,12 +278,39 @@ void sendHHMM(int hh, int mm)
   sendBits(setHHMM, sizeof(setHHMM) * 8);
 }
 
+static void checkTime()
+{
+  static int checkInterval = 0;
+  static uint32_t prevTime = 0;
+  if (++checkInterval == 1000) {
+    checkInterval = 0;
+    if (knowTime) {
+      noInterrupts();
+      uint32_t now = curTime;
+      interrupts();
+      if (now != prevTime) {
+        struct tm tm;
+        gmtime_r(now, &tm);
+        sendHHMM(tm.tm_hour, tm.tm_min);
+        Serial.print(tm.tm_hour);
+        Serial.print(":");
+        Serial.print(tm.tm_min);
+        Serial.print(":");
+        Serial.print(tm.tm_sec);
+        Serial.println();
+        prevTime = now;
+      }
+    }
+  }
+}
+
 void loop() {
   static bool flag = true;
   if (flag) {
     sendHHMM(99, 99);
     flag = false;
   }
+  checkTime();
   uint16_t length = es.ES_enc28j60PacketReceive(bufferSize, buf);
   if (length && length >= 42 /* IP packet min length */ && length <= UDP_DATA_P + NTP_PACKET_SIZE) {
     if (es.ES_eth_type_is_arp_and_my_ip(buf, length)) {
@@ -295,6 +327,13 @@ void loop() {
       uint32_t c = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 2];
       uint32_t d = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 3];
       uint32_t t = ((a << 24) | (b << 16) | (c << 8) | d) - 2208988800ul + TZ_OFFSET;
+      curTime = t;
+      a = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 4];
+      b = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 5];
+      c = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 6];
+      d = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 7];
+      t = ((a << 24) | (b << 16) | (c << 8) | d) - 2208988800ul + TZ_OFFSET;
+      curTimeFractions = t;
       struct tm tm;
       gmtime_r(t, &tm);
       Serial.println(tm.tm_mday);
@@ -304,6 +343,7 @@ void loop() {
       Serial.println(tm.tm_min);
       Serial.println(tm.tm_sec);
       sendHHMM(tm.tm_hour, tm.tm_min);
+      knowTime = true;
     }
   }
 }
