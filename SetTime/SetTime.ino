@@ -131,7 +131,6 @@ int debug = 4;
 
 /* Bit sequence sending declarations */
 
-//uint8_t setHHMM[] = { 32, 117, 103, 0, 248, 7, 128, 126, 1, 143, 254, 192, 255 };
 uint8_t setHHMM[] = { 4, 174, 230, 0, 31, 224, 1, 126, 128, 241, 127, 3, 255 };
 
 uint8_t bitsOfDigit[10] = {
