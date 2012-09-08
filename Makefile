@@ -1,7 +1,9 @@
 PACKS:=-package unix,batteries,core -thread
 
 %: %.ml
-	ocamlfind ocamlc -dtypes -linkpkg $(PACKS) -o $@ $<
+	ocamlfind ocamlc -g -dtypes -linkpkg $(PACKS) -o $@ $<
+
+convert-sequence: convert-sequence.ml
 
 send-sequence: send-sequence.ml
 
