@@ -126,9 +126,12 @@ let rec parts_by p xs =
 
 let send_sequence fd seq = 
   let seq = List.of_enum seq in
-    write_all fd "b";
-    write_all fd (String.concat "" (List.map binstr_of_bool seq));
-    write_all fd ";";
+    ( try
+	write_all fd "b";
+	write_all fd (String.concat "" (List.map binstr_of_bool seq));
+	write_all fd ";";
+      with Sys.Break ->
+	write_all fd ";" );
     let buf = String.make 1 ' ' in
       ignore (Unix.read fd buf 0 1);
       if String.get buf 0 <> '.' then
