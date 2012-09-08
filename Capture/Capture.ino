@@ -1,4 +1,5 @@
 int in = 3;
+int inInterrupt = 1;
 int debug = 4;
 
 static const int prescaler = 1;
@@ -19,6 +20,8 @@ volatile int intrOnes;
 volatile int intrZeroes;
 unsigned char intrSamples[maxSampleBytes];
 
+volatile bool intrHasCapture = false;
+
 // the loop routine runs over and over again forever:
 void setup() {
   pinMode(debug, OUTPUT);
@@ -27,6 +30,12 @@ void setup() {
   setupTimer();
   Serial.begin(115200);
   Serial.println("Start");
+  enableCaptureInterrupt();
+}
+
+void enableCaptureInterrupt()
+{
+  attachInterrupt(inInterrupt, startCapture, FALLING);
 }
 
 void setupTimer()
@@ -45,7 +54,6 @@ void setupTimer()
 
 void enableTimer()
 {
-  noInterrupts();
   TIMSK1 |= (1 << TOIE1);
   intrReading = true;
   intrFirst = true;
@@ -54,7 +62,6 @@ void enableTimer()
   intrOnes = 0;
   intrZeroes = 0;
   intrSamples[0] = 0;
-  interrupts();
 }
 
 void disableTimer()
@@ -93,43 +100,42 @@ ISR(TIMER1_OVF_vect)
 #endif
 }
 
-void dump() {
+void startCapture() {
   enableTimer();
+  intrHasCapture = true;
+  detachInterrupt(inInterrupt);
+}
+
+void dump() {
   while (intrReading) {
     // wait
   }
+  intrHasCapture = false;
   for (int c = 0; c < intrOnes; ++c) {
     if (intrAtBit-- == 0) {
       intrAtBit = 7;
       --intrAtByte;
     }
   }
-  for (int atByte = 0, atBit = 0;
-       atByte != intrAtByte || atBit != intrAtBit;
-       (++atBit == 8) ? (atBit = 0, ++atByte) : 0) {
-    if (atByte && atBit == 0) {
-      Serial.print(" ");
+  if (intrAtByte || intrAtBit) {
+    for (int atByte = 0, atBit = 0;
+         atByte != intrAtByte || atBit != intrAtBit;
+         (++atBit == 8) ? (atBit = 0, ++atByte) : 0) {
+      if (atByte && atBit == 0) {
+        Serial.print(" ");
+      }
+      Serial.print((intrSamples[atByte] & (1 << atBit)) ? '1' : '0');
     }
-    Serial.print((intrSamples[atByte] & (1 << atBit)) ? '1' : '0');
+    if (intrZeroes == 20) {
+      Serial.print("/*..*/");
+    }
+    Serial.println();
   }
-  if (intrZeroes == 20) {
-    Serial.print("/*..*/");
-  }
-  Serial.println();
+  enableCaptureInterrupt();  
 }
 
 void loop() {
-  static bool started = false;
-  if (!started) {
-    int value = digitalRead(in);
-    if (value == HIGH) {
-      started = true;
-    }
-  } else {
-    int value = digitalRead(in);
-    if (value == LOW) {
-      dump();
-      started = false;
-    }
+  if (intrHasCapture) {
+    dump();
   }
 }
