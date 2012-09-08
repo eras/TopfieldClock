@@ -98,7 +98,7 @@ let sequences =
 let rec binstr_of_bool = function
   | Bool false -> "0"
   | Bool true -> "1"
-  | DelayHigh -> String.make 12 '1'
+  | DelayHigh -> String.make 8 '1'
   | Sequence seq -> 
       try String.concat "" (List.map binstr_of_bool (ops_of_flags (List.assoc seq sequences)))
       with Not_found -> Printf.ksprintf failwith "unknown sequence %c" seq
