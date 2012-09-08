@@ -133,7 +133,7 @@ int debug = 4;
 
 uint8_t setHHMM[] = { 4, 174, 230, 0, 31, 224, 1, 126, 128, 241, 127, 3, 255 };
 
-uint8_t bitsOfDigit[10] = {
+uint8_t bitsOfDigit[11] = {
   B8(00000001),
   B8(01001111),
   B8(00010010),
@@ -143,7 +143,8 @@ uint8_t bitsOfDigit[10] = {
   B8(00100000),
   B8(00001111),
   B8(00000000),
-  B8(00000100)
+  B8(00000100),
+  B8(01111110)
 };
 
 volatile uint8_t* sequence;
