@@ -151,9 +151,11 @@ let sequence_of_str str =
     List.enum (aux (String.explode str))
 
 let do_send serial_port str =
-  let fd = open_serial serial_port 9600 in
-    send_sequence fd (sequence_of_str str);
-    Unix.close fd
+  let seq = sequence_of_str str in
+    Printf.printf "%s\n" (String.concat "" (List.map binstr_of_bool (List.of_enum seq)));
+    let fd = open_serial serial_port 9600 in
+      send_sequence fd seq;
+      Unix.close fd
 
 let main () =
   Sys.catch_break true;
