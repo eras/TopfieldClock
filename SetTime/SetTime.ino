@@ -183,6 +183,8 @@ void setupTimer()
   interrupts();             // enable all interrupts
 }
 
+static int flag = 0;
+
 ISR(TIMER1_OVF_vect)
 {
   TCNT1 = timerPreload;            // preload timer
@@ -194,14 +196,12 @@ ISR(TIMER1_OVF_vect)
     --writeBitsLeft;
     int value = ((sequence[writeCurByte] >> writeCurBit) & 1) ? HIGH : LOW;
     digitalWrite(out, value);
-    digitalWrite(debug, value);
     if (++writeCurBit == 8) {
       writeCurBit = 0;
       ++writeCurByte;
     }
   } else {
     digitalWrite(out, HIGH);
-    digitalWrite(debug, HIGH);
   }
 }
 
