@@ -156,6 +156,8 @@ volatile int writeBitsLeft = 0;
 volatile int writeCurBit = 0;
 volatile int writeCurByte = 0;
 
+uint32_t previousNtp = 0;
+uint32_t previousNtpFractions = 0;
 volatile uint32_t curTime = 0;
 volatile uint32_t curTimeFractions = 0;
 bool knowTime = false;
@@ -166,8 +168,10 @@ static const double bitLength = 52.0 / 1000000.0;
 static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
 static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
 
+static const double two_to_32 = 4294967296.0;
+
 // how much to advance curTimeFractions in the interrupt handler
-volatile uint32_t fractionsPerOverflow = 4294967296.0 * bitLength;
+volatile uint32_t fractionsPerOverflow = two_to_32 * bitLength;
 
 void setupTimer()
 {
@@ -213,10 +217,11 @@ void setup() {
   pinMode(debug, OUTPUT);
   pinMode(in, INPUT);
   digitalWrite(out, HIGH);
-  digitalWrite(debug, HIGH);
+  digitalWrite(debug, LOW);
   ethernet.setup(mac, ip, port);
   Serial.begin(9600);
   Serial.println("Start.");
+  Serial.print("Fractions per overflow: "); Serial.println(fractionsPerOverflow);
   setupTimer();
 }
 
@@ -312,6 +317,39 @@ static void checkTime()
   }
 }
 
+// http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?num=1207226548
+void printDouble( double val, byte precision){
+  // prints val with number of decimal places determine by precision
+  // precision is a number from 0 to 6 indicating the desired decimial places
+  // example: printDouble( 3.1415, 2); // prints 3.14 (two decimal places)
+
+  Serial.print (int(val));  //prints the int part
+  if( precision > 0) {
+    Serial.print("."); // print the decimal point
+    unsigned long frac;
+    unsigned long mult = 1;
+    byte padding = precision -1;
+    while(precision--)
+	 mult *=10;
+
+    if(val >= 0)
+	frac = (val - int(val)) * mult;
+    else
+	frac = (int(val)- val ) * mult;
+    unsigned long frac1 = frac;
+    while( frac1 /= 10 )
+	padding--;
+    while(  padding--)
+	Serial.print("0");
+    Serial.print(frac,DEC) ;
+  }
+}
+
+double fixedPointDistance(uint32_t a1, uint32_t a2, uint32_t b1, uint32_t b2)
+{
+  return ((int64_t) b2 - (int64_t) b1) / two_to_32 + (int32_t) (b1 - a1);
+}
+
 void loop() {
   static bool flag = true;
   if (flag) {
@@ -319,6 +357,7 @@ void loop() {
     flag = false;
   }
   checkTime();
+  
   uint16_t length = es.ES_enc28j60PacketReceive(bufferSize, buf);
   if (length && length >= 42 /* IP packet min length */ && length <= UDP_DATA_P + NTP_PACKET_SIZE) {
     if (es.ES_eth_type_is_arp_and_my_ip(buf, length)) {
@@ -328,8 +367,8 @@ void loop() {
                buf[ICMP_TYPE_P]==ICMP_TYPE_ECHOREQUEST_V) {
       es.ES_make_echo_reply_from_request(buf, length);
     } else if (buf[IP_PROTO_P] == IP_PROTO_UDP_V && buf[UDP_DST_PORT_L_P] == ntpPort && length == UDP_DATA_P + NTP_PACKET_SIZE) {
+      digitalWrite(debug, HIGH);
       // NOTE: requires disabling the pass-only-arp-broadcast filter from enc28j60
-      Serial.println("Received ntp packet");
       uint32_t a = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 0];
       uint32_t b = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 1];
       uint32_t c = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 2];
@@ -341,18 +380,40 @@ void loop() {
       d = buf[UDP_DATA_P + TRANSMIT_TIMESTAMP_P + 7];
       uint32_t t2 = ((a << 24) | (b << 16) | (c << 8) | d);
       noInterrupts();
+      uint32_t oldTime = curTime;
+      uint32_t oldTimeFractions = curTimeFractions;
       curTime = t1;
       curTimeFractions = t2;
       interrupts();
-      struct tm tm;
-      gmtime_r(t1, &tm);
-      Serial.println(tm.tm_mday);
-      Serial.println(tm.tm_mon + 1);
-      Serial.println(tm.tm_year);
-      Serial.println(tm.tm_hour);
-      Serial.println(tm.tm_min);
-      Serial.println(tm.tm_sec);
+      digitalWrite(debug, LOW);
+      if (knowTime) {
+        Serial.print(oldTime);
+        Serial.print(" ");
+        Serial.print(oldTimeFractions);
+        Serial.print(" ");
+        Serial.print(t1);
+        Serial.print(" ");
+        Serial.print(t2);
+        Serial.print(" ");
+        Serial.print(t1 - oldTime);
+        double error = fixedPointDistance(t1, t2, oldTime, oldTimeFractions);
+        Serial.print(" ");
+        printDouble(error, 6);
+        double sinceLastNtp = fixedPointDistance(t1, t2, previousNtp, previousNtpFractions);
+        Serial.print(" ");
+        printDouble(sinceLastNtp, 6);
+        Serial.print(" ");
+        double errorPerSecond = error / sinceLastNtp;
+        printDouble(errorPerSecond, 9);
+        Serial.println();
+        fractionsPerOverflow += errorPerSecond * 100000;
+        Serial.print("Fractions per overflow: ");
+        Serial.println(fractionsPerOverflow);
+      }
+      previousNtp = t1;
+      previousNtpFractions = t2;
       knowTime = true;
     }
   }
+  digitalWrite(debug, LOW);
 }
