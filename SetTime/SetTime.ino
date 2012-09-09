@@ -234,6 +234,7 @@ void sendBits(uint8_t* ptr, int bits)
     // wait for writing to go through
   }
 
+#if 0
   writeCurByte = 0;
   writeCurBit = 0;
   
@@ -246,6 +247,7 @@ void sendBits(uint8_t* ptr, int bits)
     }
   }
   Serial.println();
+#endif
 }
 
 void insertBits(int n, uint8_t* dst, int dstBit, uint8_t data)
