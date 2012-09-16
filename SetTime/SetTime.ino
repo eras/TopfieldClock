@@ -125,8 +125,8 @@ ETHER_28J60 ethernet;
 
 /* End of networking code */
 
-int out = 2;
-int in = 3;
+int out = 3;
+int in = 2;
 int debug = 4;
 
 /* Bit sequence sending declarations */
