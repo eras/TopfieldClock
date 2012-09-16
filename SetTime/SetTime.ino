@@ -216,13 +216,15 @@ void setup() {
   pinMode(out, OUTPUT);
   pinMode(debug, OUTPUT);
   pinMode(in, INPUT);
+  setupTimer();
   digitalWrite(out, HIGH);
   digitalWrite(debug, LOW);
+  delay(500);
+  setDigits(10, 10, 10, 10, B8(0000000));
   ethernet.setup(mac, ip, port);
   Serial.begin(9600);
   Serial.println("Start.");
   Serial.print("Fractions per overflow: "); Serial.println(fractionsPerOverflow);
-  setupTimer();
 }
 
 // sends stuff from sequence, sequenceAtBit/sequenceAtByte
@@ -351,11 +353,6 @@ double fixedPointDistance(uint32_t a1, uint32_t a2, uint32_t b1, uint32_t b2)
 }
 
 void loop() {
-  static bool flag = true;
-  if (flag) {
-    setDigits(10, 10, 10, 10, B8(0000000));
-    flag = false;
-  }
   checkTime();
   
   uint16_t length = es.ES_enc28j60PacketReceive(bufferSize, buf);
