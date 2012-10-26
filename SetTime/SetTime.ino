@@ -362,7 +362,8 @@ static void checkTime()
         gmtime_r(now, &tm);
         int offset = tzOffset(&tm);
         gmtime_r(now + offset, &tm);        
-        sendHHMM(tm.tm_hour, tm.tm_min, B8(0110000));
+        int colon = (now & 2) == 0 ? B8(0110000) : 0;
+        sendHHMM(tm.tm_hour, tm.tm_min, colon);
         Serial.print(tm.tm_year);
         Serial.print("-");
         Serial.print(tm.tm_mon + 1);
