@@ -54,6 +54,14 @@ struct tm {
   int tm_sec;
 };
 
+#define SUNDAY 0
+#define MONDAY 1
+#define TUESDAY 2
+#define WEDNESDAY 3
+#define THURSDAY 4
+#define FRIDAY 5
+#define SATURDAY 6
+
 #define EPOCH_YR                1970
 #define SECS_DAY                (24L * 60L * 60L)
 #define LEAPYEAR(year)          (!((year) % 4) && (((year) % 100) || !((year) % 400)))
@@ -99,6 +107,51 @@ struct tm *gmtime_r(const uint32_t time, struct tm *tmbuf) {
   }
   tmbuf->tm_mday = dayno + 1;
   return tmbuf;
+}
+
+int countsOfWeekdayBeforeNextMonth(struct tm* tm, int wday)
+{
+  int count = 0;
+  int curMday = tm->tm_mday;
+  int curWday = tm->tm_wday;
+  while (curMday <= yearDays[LEAPYEAR(tm->tm_year)][tm->tm_mon]) {
+    if (curWday == wday) {
+      ++count;
+    }
+    ++curMday;
+    ++curWday;
+    if (curWday == 7) {
+      curWday = 0;
+    }
+  }
+  return count;
+}
+
+bool afterOrAtLastSunday(struct tm* tm)
+{
+  return
+    (tm->tm_wday == 0 && countsOfWeekdayBeforeNextMonth(tm, SUNDAY) == 1) ||
+    (countsOfWeekdayBeforeNextMonth(tm, SUNDAY) == 0);
+}
+
+int tzOffset(struct tm* tm)
+{
+  bool isSummerTime =
+    (tm->tm_mon > 2 ||
+     (tm->tm_mon == 2 && /* maaliskuu, tm_mon alkaa nollasta */
+      afterOrAtLastSunday(tm)
+     )
+    ) && (
+     tm->tm_mon < 9 ||
+     (tm->tm_mon == 9 && /* lokakuu, tm_mon alkaa nollasta */
+      !afterOrAtLastSunday(tm)
+     )
+    );
+  if (isSummerTime) {
+    return 3600 * 3;
+  } else {
+    return 3600 * 2;
+  }
 }
 
 /* End of time manipulation code */
@@ -304,16 +357,26 @@ static void checkTime()
       uint32_t now = curTime;
       interrupts();
       if (now != prevTime) {
+        prevTime = now;
         struct tm tm;
-        gmtime_r(now + TZ_OFFSET, &tm);
+        gmtime_r(now, &tm);
+        int offset = tzOffset(&tm);
+        gmtime_r(now + offset, &tm);        
         sendHHMM(tm.tm_hour, tm.tm_min, B8(0110000));
+        Serial.print(tm.tm_year);
+        Serial.print("-");
+        Serial.print(tm.tm_mon + 1);
+        Serial.print("-");
+        Serial.print(tm.tm_mday);
+        Serial.print(" ");
+        Serial.print(tm.tm_wday);
+        Serial.print(" ");
         Serial.print(tm.tm_hour);
         Serial.print(":");
         Serial.print(tm.tm_min);
         Serial.print(":");
         Serial.print(tm.tm_sec);
         Serial.println();
-        prevTime = now;
       }
     }
   }
