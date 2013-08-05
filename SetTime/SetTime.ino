@@ -222,6 +222,9 @@ static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
 static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
 
 static const double two_to_32 = 4294967296.0;
+static const uint32_t maxTimeAge = 10 /* 24ul * 3600ul */; // maximum number of seconds we maintain a time without hearing from network
+
+uint32_t timeExpireSeconds = 0; // how long till we forget the time (as it has probably become stale)
 
 // how much to advance curTimeFractions in the interrupt handler
 volatile uint32_t fractionsPerOverflow = two_to_32 * bitLength;
@@ -358,7 +361,16 @@ static void checkTime()
       uint32_t now = curTime;
       bool curShowColon = !(curTimeFractions >> 31);
       interrupts();
-      if (now != prevTime || prevShowColon != curShowColon) {
+      if (now != prevTime) {
+        if (timeExpireSeconds > 0) {
+          --timeExpireSeconds;
+        } else {
+          timeExpireSeconds = 0;
+          knowTime = 0;
+          setDigits(10, 10, 10, 10, B8(0110000));
+        }
+      }
+      if (knowTime && (now != prevTime || prevShowColon != curShowColon)) {
         prevTime = now;
         struct tm tm;
         gmtime_r(now, &tm);
@@ -477,6 +489,7 @@ void loop() {
       previousNtp = t1;
       previousNtpFractions = t2;
       knowTime = true;
+      timeExpireSeconds = maxTimeAge;
     }
   }
   digitalWrite(debug, LOW);
