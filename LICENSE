@@ -1,4 +1,8 @@
-Note that SetTime/enc28j60.c is under GPLv2. For the remaining parts:
+Note that SetTime/enc28j60.c is under GPLv2. Also the time
+manipulation functions in SetTime.ino are licensed under the 3-clause
+BSD license.
+
+For the remaining parts (2-clause BSD license):
 
 Copyright (c) 2012, 2013, Erkki Seppälä
 All rights reserved.
