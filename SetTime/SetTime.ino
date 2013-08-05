@@ -350,19 +350,21 @@ static void checkTime()
 {
   static int checkInterval = 0;
   static uint32_t prevTime = 0;
+  static bool prevShowColon = 0;
   if (++checkInterval == 1000) {
     checkInterval = 0;
     if (knowTime) {
       noInterrupts();
       uint32_t now = curTime;
+      bool curShowColon = !(curTimeFractions >> 31);
       interrupts();
-      if (now != prevTime) {
+      if (now != prevTime || prevShowColon != curShowColon) {
         prevTime = now;
         struct tm tm;
         gmtime_r(now, &tm);
         int offset = tzOffset(&tm);
         gmtime_r(now + offset, &tm);        
-        int colon = (now & 2) == 0 ? B8(0110000) : 0;
+        int colon = curShowColon ? B8(0110000) : 0;
         sendHHMM(tm.tm_hour, tm.tm_min, colon);
         Serial.print(tm.tm_year);
         Serial.print("-");
@@ -379,6 +381,7 @@ static void checkTime()
         Serial.print(tm.tm_sec);
         Serial.println();
       }
+      prevShowColon = curShowColon;
     }
   }
 }
