@@ -222,7 +222,7 @@ static const unsigned int finetuning = 50; // fine-tuned with an oscilloscope
 static const unsigned int timerPreload = 65536 - systemHz / prescaler / (1 / bitLength) + finetuning;
 
 static const double two_to_32 = 4294967296.0;
-static const uint32_t maxTimeAge = 10 /* 24ul * 3600ul */; // maximum number of seconds we maintain a time without hearing from network
+static const uint32_t maxTimeAge = 24ul * 3600ul; // maximum number of seconds we maintain a time without hearing from network
 
 uint32_t timeExpireSeconds = 0; // how long till we forget the time (as it has probably become stale)
 
