@@ -1,0 +1,24 @@
+http://hackaday.com/2013/08/07/a-cable-box-becomes-a-network-time-display/#comment-1037589
+
+Cubic says:	
+August 8, 2013 at 11:23 am
+
+Tried good while to make sense of the data, as I happen to have the same panel, and things just seemed wrong. Couldn’t get anything similar from my panel, until I figured out he probably didn’t realise it’s async serial stream, and he has also accounted delays between bytes as data…
+
+…0 8bits nx1…0 8bits nx1…0 8bits nx1…
+Reply Report comment	
+
+    Erkki Seppälä says:	
+    August 8, 2013 at 12:24 pm
+
+    Actually now that I revised the project (after a year) that idea did come across to my mind, but it worked for me, doesn’t matter :).
+
+    I hope the decodings are useful to use nevertheles. I cannot anymore capture them from the device Topfield main board as I don’t have it anymore.
+    Reply Report comment	
+        Cubic says:	
+        August 8, 2013 at 5:43 pm
+
+        Yes, thanks for the dump. I managed to figure out the clock function.
+
+        Sending bytes least significant bit first: 0×02, 0×15, 0xcf, 0x0c, HH, MM, SS, 0×03
+        Reply Report comment	
